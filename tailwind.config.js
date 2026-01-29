@@ -1,0 +1,63 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        terracotta: {
+          50: '#fef5f3',
+          100: '#fde8e3',
+          200: '#fbd5cc',
+          300: '#f7b5a7',
+          400: '#f18c75',
+          500: '#e36749',
+          600: '#c74a2e',
+          700: '#a73d25',
+          800: '#8a3623',
+          900: '#733323',
+        },
+        olive: {
+          50: '#f7f8f3',
+          100: '#edeee3',
+          200: '#dce0c9',
+          300: '#c4cba7',
+          400: '#a8b283',
+          500: '#8e9865',
+          600: '#6f7a4e',
+          700: '#575f3f',
+          800: '#474d36',
+          900: '#3d422f',
+        },
+        cream: {
+          50: '#fdfcf9',
+          100: '#faf7f0',
+          200: '#f5ede0',
+          300: '#ecdfc8',
+          400: '#e0caaa',
+          500: '#d4b48c',
+          600: '#c19665',
+          700: '#a97a4f',
+          800: '#8b6543',
+          900: '#71533a',
+        },
+        bronze: {
+          50: '#faf7f3',
+          100: '#f3ede3',
+          200: '#e7d8c3',
+          300: '#d7bb9d',
+          400: '#c69a75',
+          500: '#b98059',
+          600: '#a96a4d',
+          700: '#8e5642',
+          800: '#734739',
+          900: '#5e3c31',
+        },
+      },
+      fontFamily: {
+        serif: ['Playfair Display', 'Georgia', 'serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+    },
+  },
+  plugins: [],
+};
