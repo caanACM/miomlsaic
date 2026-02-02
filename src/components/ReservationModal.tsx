@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Loader2, Check, AlertCircle } from 'lucide-react';
+import { X, Loader2, Check, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { validateUKPhone, formatUKPhone, getPhoneErrorMessage, validateEmail, validateFullName } from '../utils/validation';
 
 interface ReservationModalProps {
   isOpen: boolean;
@@ -21,6 +22,10 @@ interface FormErrors {
   [key: string]: string;
 }
 
+interface FieldValidity {
+  [key: string]: boolean;
+}
+
 const timeSlots = [
   '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'
 ];
@@ -37,6 +42,7 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+  const [fieldValidity, setFieldValidity] = useState<FieldValidity>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [submitMessage, setSubmitMessage] = useState('');
@@ -65,46 +71,74 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
+  const validateField = (name: string, value: string): string | null => {
+    switch (name) {
+      case 'fullName':
+        if (!value.trim()) return 'Full name is required';
+        if (!validateFullName(value)) return 'Full name must be at least 2 characters';
+        return null;
+
+      case 'email':
+        if (!value.trim()) return 'Email is required';
+        if (!validateEmail(value)) return 'Please enter a valid email';
+        return null;
+
+      case 'phone':
+        const phoneError = getPhoneErrorMessage(value);
+        return phoneError;
+
+      case 'date':
+        if (!value) return 'Date is required';
+        const selectedDate = new Date(value);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (selectedDate < today) return 'Please select today or a future date';
+        return null;
+
+      case 'time':
+        if (!value) return 'Time is required';
+        return null;
+
+      case 'partySize':
+        if (!value) return 'Party size is required';
+        return null;
+
+      default:
+        return null;
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    }
+    const fullNameError = validateField('fullName', formData.fullName);
+    if (fullNameError) newErrors.fullName = fullNameError;
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
-    }
+    const emailError = validateField('email', formData.email);
+    if (emailError) newErrors.email = emailError;
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^[\d\s\-\+\(\)]{10,}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Please enter a valid phone number';
-    }
+    const phoneError = validateField('phone', formData.phone);
+    if (phoneError) newErrors.phone = phoneError;
 
-    if (!formData.date) {
-      newErrors.date = 'Date is required';
-    } else {
-      const selectedDate = new Date(formData.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (selectedDate < today) {
-        newErrors.date = 'Please select today or a future date';
-      }
-    }
+    const dateError = validateField('date', formData.date);
+    if (dateError) newErrors.date = dateError;
 
-    if (!formData.time) {
-      newErrors.time = 'Time is required';
-    }
+    const timeError = validateField('time', formData.time);
+    if (timeError) newErrors.time = timeError;
 
-    if (!formData.partySize) {
-      newErrors.partySize = 'Party size is required';
-    }
+    const partySizeError = validateField('partySize', formData.partySize);
+    if (partySizeError) newErrors.partySize = partySizeError;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const updateFieldValidity = (name: string, value: string) => {
+    const error = validateField(name, value);
+    setFieldValidity((prev) => ({
+      ...prev,
+      [name]: error === null && value.trim() !== '',
+    }));
   };
 
   const handleInputChange = (
@@ -112,23 +146,16 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    updateFieldValidity(name, value);
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length > 0) {
-      if (value.length <= 3) {
-        value = value;
-      } else if (value.length <= 6) {
-        value = `${value.slice(0, 3)} ${value.slice(3)}`;
-      } else {
-        value = `${value.slice(0, 3)} ${value.slice(3, 6)} ${value.slice(6, 10)}`;
-      }
-    }
-    setFormData((prev) => ({ ...prev, phone: value }));
+    const formatted = formatUKPhone(e.target.value);
+    setFormData((prev) => ({ ...prev, phone: formatted }));
+    updateFieldValidity('phone', formatted);
     if (errors.phone) {
       setErrors((prev) => ({ ...prev, phone: '' }));
     }
@@ -214,22 +241,31 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
               <label className="block font-sans font-medium text-olive-800 mb-2">
                 Full Name *
               </label>
-              <input
-                ref={firstInputRef}
-                type="text"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none ${
-                  errors.fullName
-                    ? 'border-terracotta-500 bg-terracotta-50'
-                    : 'border-cream-300 focus:border-olive-400'
-                }`}
-                placeholder="Your full name"
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <input
+                  ref={firstInputRef}
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none ${
+                    errors.fullName
+                      ? 'border-terracotta-500 bg-terracotta-50'
+                      : fieldValidity.fullName
+                      ? 'border-olive-400 bg-olive-50'
+                      : 'border-cream-300 focus:border-olive-400'
+                  }`}
+                  placeholder="Your full name"
+                  disabled={isSubmitting}
+                  aria-invalid={!!errors.fullName}
+                  aria-describedby={errors.fullName ? 'fullName-error' : undefined}
+                />
+                {fieldValidity.fullName && !errors.fullName && (
+                  <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-olive-600" />
+                )}
+              </div>
               {errors.fullName && (
-                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1">
+                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1" id="fullName-error">
                   <AlertCircle className="w-4 h-4" />
                   {errors.fullName}
                 </p>
@@ -240,21 +276,30 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
               <label className="block font-sans font-medium text-olive-800 mb-2">
                 Email Address *
               </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none ${
-                  errors.email
-                    ? 'border-terracotta-500 bg-terracotta-50'
-                    : 'border-cream-300 focus:border-olive-400'
-                }`}
-                placeholder="your@email.com"
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none ${
+                    errors.email
+                      ? 'border-terracotta-500 bg-terracotta-50'
+                      : fieldValidity.email
+                      ? 'border-olive-400 bg-olive-50'
+                      : 'border-cream-300 focus:border-olive-400'
+                  }`}
+                  placeholder="your@email.com"
+                  disabled={isSubmitting}
+                  aria-invalid={!!errors.email}
+                  aria-describedby={errors.email ? 'email-error' : undefined}
+                />
+                {fieldValidity.email && !errors.email && (
+                  <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-olive-600" />
+                )}
+              </div>
               {errors.email && (
-                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1">
+                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1" id="email-error">
                   <AlertCircle className="w-4 h-4" />
                   {errors.email}
                 </p>
@@ -267,23 +312,37 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
               <label className="block font-sans font-medium text-olive-800 mb-2">
                 Phone Number *
               </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handlePhoneChange}
-                className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none ${
-                  errors.phone
-                    ? 'border-terracotta-500 bg-terracotta-50'
-                    : 'border-cream-300 focus:border-olive-400'
-                }`}
-                placeholder="020 7272 3509"
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none ${
+                    errors.phone
+                      ? 'border-terracotta-500 bg-terracotta-50'
+                      : fieldValidity.phone
+                      ? 'border-olive-400 bg-olive-50'
+                      : 'border-cream-300 focus:border-olive-400'
+                  }`}
+                  placeholder="020 7272 3509 or +44 7123 456789"
+                  disabled={isSubmitting}
+                  aria-invalid={!!errors.phone}
+                  aria-describedby={errors.phone ? 'phone-error' : 'phone-hint'}
+                />
+                {fieldValidity.phone && !errors.phone && (
+                  <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-olive-600" />
+                )}
+              </div>
               {errors.phone && (
-                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1">
+                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1" id="phone-error">
                   <AlertCircle className="w-4 h-4" />
                   {errors.phone}
+                </p>
+              )}
+              {!errors.phone && formData.phone && (
+                <p className="text-olive-600 text-xs mt-1" id="phone-hint">
+                  Formats: 020 1234 5678, 07123 456789, or +44 7123 456789
                 </p>
               )}
             </div>
@@ -292,21 +351,30 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
               <label className="block font-sans font-medium text-olive-800 mb-2">
                 Reservation Date *
               </label>
-              <input
-                type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleInputChange}
-                min={today}
-                className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none ${
-                  errors.date
-                    ? 'border-terracotta-500 bg-terracotta-50'
-                    : 'border-cream-300 focus:border-olive-400'
-                }`}
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleInputChange}
+                  min={today}
+                  className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none ${
+                    errors.date
+                      ? 'border-terracotta-500 bg-terracotta-50'
+                      : fieldValidity.date
+                      ? 'border-olive-400 bg-olive-50'
+                      : 'border-cream-300 focus:border-olive-400'
+                  }`}
+                  disabled={isSubmitting}
+                  aria-invalid={!!errors.date}
+                  aria-describedby={errors.date ? 'date-error' : undefined}
+                />
+                {fieldValidity.date && !errors.date && (
+                  <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-olive-600" />
+                )}
+              </div>
               {errors.date && (
-                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1">
+                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1" id="date-error">
                   <AlertCircle className="w-4 h-4" />
                   {errors.date}
                 </p>
@@ -319,26 +387,35 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
               <label className="block font-sans font-medium text-olive-800 mb-2">
                 Reservation Time *
               </label>
-              <select
-                name="time"
-                value={formData.time}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none ${
-                  errors.time
-                    ? 'border-terracotta-500 bg-terracotta-50'
-                    : 'border-cream-300 focus:border-olive-400'
-                }`}
-                disabled={isSubmitting}
-              >
-                <option value="">Select a time</option>
-                {timeSlots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slot.replace(':', ':')} PM
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  name="time"
+                  value={formData.time}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none appearance-none ${
+                    errors.time
+                      ? 'border-terracotta-500 bg-terracotta-50'
+                      : fieldValidity.time
+                      ? 'border-olive-400 bg-olive-50'
+                      : 'border-cream-300 focus:border-olive-400'
+                  }`}
+                  disabled={isSubmitting}
+                  aria-invalid={!!errors.time}
+                  aria-describedby={errors.time ? 'time-error' : undefined}
+                >
+                  <option value="">Select a time</option>
+                  {timeSlots.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot.replace(':', ':')} PM
+                    </option>
+                  ))}
+                </select>
+                {fieldValidity.time && !errors.time && (
+                  <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-olive-600 pointer-events-none" />
+                )}
+              </div>
               {errors.time && (
-                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1">
+                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1" id="time-error">
                   <AlertCircle className="w-4 h-4" />
                   {errors.time}
                 </p>
@@ -349,25 +426,34 @@ export default function ReservationModal({ isOpen, onClose }: ReservationModalPr
               <label className="block font-sans font-medium text-olive-800 mb-2">
                 Party Size *
               </label>
-              <select
-                name="partySize"
-                value={formData.partySize}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none ${
-                  errors.partySize
-                    ? 'border-terracotta-500 bg-terracotta-50'
-                    : 'border-cream-300 focus:border-olive-400'
-                }`}
-                disabled={isSubmitting}
-              >
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((size) => (
-                  <option key={size} value={size}>
-                    {size} {size === 1 ? 'guest' : 'guests'}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  name="partySize"
+                  value={formData.partySize}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-2 border-2 rounded-lg font-sans transition-colors focus:outline-none appearance-none ${
+                    errors.partySize
+                      ? 'border-terracotta-500 bg-terracotta-50'
+                      : fieldValidity.partySize
+                      ? 'border-olive-400 bg-olive-50'
+                      : 'border-cream-300 focus:border-olive-400'
+                  }`}
+                  disabled={isSubmitting}
+                  aria-invalid={!!errors.partySize}
+                  aria-describedby={errors.partySize ? 'partySize-error' : undefined}
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((size) => (
+                    <option key={size} value={size}>
+                      {size} {size === 1 ? 'guest' : 'guests'}
+                    </option>
+                  ))}
+                </select>
+                {fieldValidity.partySize && !errors.partySize && (
+                  <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-olive-600 pointer-events-none" />
+                )}
+              </div>
               {errors.partySize && (
-                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1">
+                <p className="text-terracotta-600 text-sm mt-1 flex items-center gap-1" id="partySize-error">
                   <AlertCircle className="w-4 h-4" />
                   {errors.partySize}
                 </p>
