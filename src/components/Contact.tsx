@@ -109,19 +109,20 @@ export default function Contact() {
             </div>
           </div>
 
-          <div style={{ width: '100%', minHeight: '400px' }}>
-            <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2480.1914626637663!2d-0.13770192340018733!3d51.56472350651407!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x48761bae811b6ac1%3A0x21a1e691bd95e52d!2sMosaic%20Restaurant%20(il%20mio%20Mosaic)!5e0!3m2!1sen!2suk!4v1770013667782!5m2!1sen!2suk"
-              width="100%"
-              height="100%"
-              style={{ border: 0, minHeight: '400px' }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              className="rounded-lg"
-              title="Mosaic Restaurant Location"
+          <a
+            href="https://www.google.com/maps/place/Mosaic+Restaurant+(il+mio+Mosaic)/@51.5647235,-0.1377019,17z/data=!3m1!4b1!4m6!3m5!1s0x48761bae811b6ac1:0x21a1e691bd95e52d!8m2!3d51.5647235!4d-0.135527!16s%2Fg%2F11c5q89kg8?entry=ttu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full h-full"
+          >
+            <img
+              src="https://maps.googleapis.com/maps/api/staticmap?center=51.5647235,-0.135527&zoom=15&size=600x450&markers=color:red%7Clabel:M%7C51.5647235,-0.135527&style=feature:poi|visibility:on"
+              alt="Map showing Mosaic Restaurant location at 24 Junction Road, London N19 5RE"
+              className="w-full h-full object-cover rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
+              onError={(e) => {e.currentTarget.src = 'https://via.placeholder.com/600x450/E8E8E8/666666?text=Click+to+Open+Map'}}
+              style={{ minHeight: '400px', display: 'block' }}
             />
-          </div>
+          </a>
         </div>
       </div>
     </section>
