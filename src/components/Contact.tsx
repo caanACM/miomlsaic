@@ -1,4 +1,5 @@
 import { MapPin, Phone, Clock, Instagram, Mail } from 'lucide-react';
+import InteractiveMap from './InteractiveMap';
 
 export default function Contact() {
   return (
@@ -109,20 +110,7 @@ export default function Contact() {
             </div>
           </div>
 
-          <a
-            href="https://www.google.com/maps/place/Mosaic+Restaurant+(il+mio+Mosaic)/@51.5647235,-0.1377019,17z/data=!3m1!4b1!4m6!3m5!1s0x48761bae811b6ac1:0x21a1e691bd95e52d!8m2!3d51.5647235!4d-0.135527!16s%2Fg%2F11c5q89kg8?entry=ttu"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full h-full"
-          >
-            <img
-              src="https://maps.googleapis.com/maps/api/staticmap?center=51.5647235,-0.135527&zoom=15&size=600x450&markers=color:red%7Clabel:M%7C51.5647235,-0.135527&style=feature:poi|visibility:on"
-              alt="Map showing Mosaic Restaurant location at 24 Junction Road, London N19 5RE"
-              className="w-full h-full object-cover rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
-              onError={(e) => {e.currentTarget.src = 'https://via.placeholder.com/600x450/E8E8E8/666666?text=Click+to+Open+Map'}}
-              style={{ minHeight: '400px', display: 'block' }}
-            />
-          </a>
+          <InteractiveMap />
         </div>
       </div>
     </section>
